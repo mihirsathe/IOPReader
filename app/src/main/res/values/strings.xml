@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">IOPV3</string>
+    <string name="upload_picture">Upload Picture</string>
+    <string name="take_picture">Take Picture</string>
+    <string name="archive">Archive</string>
+</resources>
