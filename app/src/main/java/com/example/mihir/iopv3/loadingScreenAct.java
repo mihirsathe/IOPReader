@@ -1,10 +1,12 @@
 package com.example.mihir.iopv3;
 
 import android.content.ContentResolver;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -34,6 +36,14 @@ public class loadingScreenAct extends AppCompatActivity {
 
         // TODO Insert Processing Code
         // Todo Get result number and pass to show result activity
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Intent showResultActivity = new Intent(getApplicationContext(), showResultActivity.class);
+                showResultActivity.putExtra("pressureVal", 21);
+                startActivity(showResultActivity);
+            }
+        }, 2500);
 
     }
 }
