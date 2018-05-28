@@ -10,9 +10,12 @@ import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
+
+import org.opencv.android.OpenCVLoader;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,7 +28,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
+        if (!OpenCVLoader.initDebug()) {
+            Log.e(this.getClass().getSimpleName(), "  OpenCVLoader.initDebug(), not working.");
+        } else {
+            Log.d(this.getClass().getSimpleName(), "  OpenCVLoader.initDebug(), working.");
+        }
         Button takePicBtn = findViewById(R.id.takePicBtn);
         Button choosePicBtn = findViewById(R.id.choosePicBtn);
         takePicBtn.setOnClickListener(new View.OnClickListener() {
