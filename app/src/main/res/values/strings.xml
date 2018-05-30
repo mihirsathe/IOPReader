@@ -3,4 +3,8 @@
     <string name="upload_picture">Upload Picture</string>
     <string name="take_picture">Take Picture</string>
     <string name="archive">Archive</string>
+    <string name="your_eye_pressure_is">Your eye pressure is</string>
+    <string name="mmhg">mmHg</string>
+    <string name="save_to_log">Save to log?</string>
+    <string name="restart">Restart</string>
 </resources>

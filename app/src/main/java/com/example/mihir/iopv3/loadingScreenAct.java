@@ -1,12 +1,10 @@
 package com.example.mihir.iopv3;
 
 import android.content.ContentResolver;
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -24,33 +22,35 @@ import org.opencv.imgproc.Imgproc;
 import java.io.FileNotFoundException;
 import java.util.Arrays;
 
+import static java.lang.Math.log;
 import static org.opencv.core.Core.BORDER_REFLECT;
 
 public class loadingScreenAct extends AppCompatActivity {
 
-    public static double getEntropy(Mat mROI, int gray_max) {
+    public static double getEntropy(Mat mROI) {
+        int grayMax = 256;
         double entropy = 0;
-        double temp;
-        double totalSize = mROI.rows() * mROI.cols();
-        double[] sym_occur = new double[0];
-        double occ;
+        int totalSize = mROI.rows() * mROI.cols();
+        int[] histogram = new int[grayMax];
+        double log2 = log(2.0);
+        double[] entropy_tab = new double[totalSize + 1];
+        double frequency;
+        entropy_tab[0] = 0;
+        for (int i = 1; i < totalSize + 1; i++) {
+            frequency = ((double) i) / totalSize;
+            entropy_tab[i] = frequency * (log(frequency) / log2);
+        }
 
         Mat hist = new Mat();
         MatOfFloat ranges = new MatOfFloat(0f, 256f);
-        MatOfInt histSize = new MatOfInt(gray_max);
+        MatOfInt histSize = new MatOfInt(grayMax);
 
         Imgproc.calcHist(Arrays.asList(mROI), new MatOfInt(0), new Mat(), hist, histSize, ranges);
-
-        for (int i = 0; i < gray_max; i++) {
-            hist.get(0, i, sym_occur);
-            occ = sym_occur[0];
-            if (occ == 0) {
-                occ = gray_max;
-            }
-            temp = (occ / totalSize) * (Math.log(totalSize / occ));
-            entropy += temp;
+        hist.convertTo(hist, CvType.CV_32S);
+        hist.get(0, 0, histogram);
+        for (int i = 0; i < grayMax; i++) {
+            entropy += entropy_tab[histogram[i]];
         }
-
         return entropy;
     }
 
@@ -80,7 +80,7 @@ public class loadingScreenAct extends AppCompatActivity {
         Imgproc.equalizeHist(gray, gray);
 
         // Begin entropy filter code
-        Mat entropy = new Mat();
+        Mat entropy = new Mat(gray.size(), CvType.CV_64FC1);
         // 7x7 neighborhood
         int box_size = 7;
         final Size filtSize = new Size(box_size, box_size);
@@ -92,9 +92,17 @@ public class loadingScreenAct extends AppCompatActivity {
 
 
         // TODO loop through each pixel and call entropy
-
+        Mat mROI;
+        double[] data = new double[entropy.rows() * entropy.cols()];
+        for (int i = 0; i < entropy.rows(); i++) {
+            for (int j = 0; j < entropy.cols(); j++) {
+                mROI = reflect.submat(i, i + box_size, j, j + box_size);
+                data[i * entropy.cols() + j] = getEntropy(mROI);
+            }
+        }
+        entropy.put(0, 0, data);
         //Todo normalize the entropy values
-        //Core.normalize(entropy, normEntropy, 0, 1, Core.NORM_MINMAX);
+        Core.normalize(entropy, entropy, 0, 255, Core.NORM_MINMAX, CvType.CV_8UC1);
 
         // Todo convert to float32
         //Mat floatGray = new Mat();
@@ -106,21 +114,20 @@ public class loadingScreenAct extends AppCompatActivity {
         //Imgproc.morphologyEx(detectedEdges,detectedEdges,MORPH_GRADIENT,element);
 
         // Convert image and display in imageview
-        reflect.convertTo(reflect, CvType.CV_8UC1);
-        Bitmap bam = Bitmap.createBitmap(reflect.cols(), reflect.rows(), Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(reflect, bam);
+        Bitmap bam = Bitmap.createBitmap(entropy.cols(), entropy.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(entropy, bam);
 
         ImageView mImg;
         mImg = findViewById(R.id.imageView);
         mImg.setImageBitmap(bam);
-        new Handler().postDelayed(new Runnable() {
+/*        new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
                 Intent showResultActivity = new Intent(getApplicationContext(), showResultActivity.class);
                 showResultActivity.putExtra("pressureVal", 21);
                 startActivity(showResultActivity);
             }
-        }, 3500);
+        }, 3500);*/
 
     }
 }
