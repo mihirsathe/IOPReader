@@ -30,7 +30,11 @@
             </intent-filter>
         </activity>
         <activity android:name=".loadingScreenAct" />
-        <activity android:name=".showResultActivity"></activity>
+        <activity android:name=".showResultActivity" />
+
+        <service
+            android:name=".photoProcessService"
+            android:exported="false"></service>
     </application>
 
 </manifest>
