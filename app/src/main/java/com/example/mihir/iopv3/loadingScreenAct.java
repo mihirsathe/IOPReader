@@ -182,6 +182,10 @@ public class loadingScreenAct extends AppCompatActivity {
         Imgproc.line(croppedCol, new Point(0, croppedCol.rows() / 2), new Point(croppedCol.cols(), croppedCol.rows() / 2), new Scalar(255, 0, 0));
 
 
+        // TODO ZIJUN LOOK HERE
+        double[] sliceData = new double[croppedCol.cols()];
+        sliceData = croppedCol.row(croppedCol.rows() / 2).get(0, 0);
+
 
         // Convert image and display in imageview
         Bitmap bam = Bitmap.createBitmap(croppedCol.cols(), croppedCol.rows(), Bitmap.Config.ARGB_8888);
