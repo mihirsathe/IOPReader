@@ -16,6 +16,9 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
+import org.opencv.core.Point;
+import org.opencv.core.Rect;
+import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
@@ -24,8 +27,13 @@ import java.util.Arrays;
 
 import static java.lang.Math.log;
 import static org.opencv.core.Core.BORDER_REFLECT;
+import static org.opencv.imgproc.Imgproc.CC_STAT_AREA;
+import static org.opencv.imgproc.Imgproc.CC_STAT_HEIGHT;
+import static org.opencv.imgproc.Imgproc.CC_STAT_LEFT;
+import static org.opencv.imgproc.Imgproc.CC_STAT_TOP;
+import static org.opencv.imgproc.Imgproc.CC_STAT_WIDTH;
+import static org.opencv.imgproc.Imgproc.MORPH_ELLIPSE;
 import static org.opencv.imgproc.Imgproc.MORPH_GRADIENT;
-import static org.opencv.imgproc.Imgproc.MORPH_RECT;
 
 public class loadingScreenAct extends AppCompatActivity {
 
@@ -80,30 +88,43 @@ public class loadingScreenAct extends AppCompatActivity {
         // Converts bitmap to mat, grays it
         Mat rawMat = new Mat();
         Utils.bitmapToMat(bmp, rawMat);
+
+        // Mat rawMat = new Mat(500, 500,unscaleMat.type());
+        // Imgproc.resize(unscaleMat,  rawMat, rawMat.size());
         Mat gray = new Mat(rawMat.size(), CvType.CV_8UC1);
+        Mat orig = new Mat(rawMat.size(), CvType.CV_8UC1);
+
         Imgproc.cvtColor(rawMat, gray, Imgproc.COLOR_RGB2GRAY);
+        Imgproc.cvtColor(rawMat, orig, Imgproc.COLOR_RGB2GRAY);
+
+        rawMat.release();
         // Equalize histogram
         Imgproc.equalizeHist(gray, gray);
 
         // Begin entropy filter code
         Mat entropy = new Mat(gray.size(), CvType.CV_64FC1);
         // 7x7 neighborhood
-        int box_size = 5;
+        int box_size = 7;
 
         // Pad image to cover edges
         int pad = (box_size - 1) / 2;
         Mat reflect = new Mat();
         Core.copyMakeBorder(gray, reflect, pad, pad, pad, pad, BORDER_REFLECT);
-
+        reflect.convertTo(reflect, CvType.CV_32SC1);
 
         // TODO loop through each pixel and call entropy
         Mat mROI;
-        double[] data = new double[entropy.rows() * entropy.cols()];
-        for (int i = 0; i < entropy.rows(); i++) {
-            for (int j = 0; j < entropy.cols(); j++) {
+        int rows = entropy.rows();
+        int cols = entropy.cols();
+        double[] data = new double[rows * cols];
+        int[] window = new int[box_size * box_size];
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
                 mROI = reflect.submat(i, i + box_size, j, j + box_size);
-                data[i * entropy.cols() + j] = getEntropy(mROI);
+                mROI.get(0, 0, window);
+                data[i * cols + j] = REntropy.getShannonEntropy(window);
             }
+
         }
         entropy.put(0, 0, data);
         // normalize the entropy values
@@ -111,17 +132,60 @@ public class loadingScreenAct extends AppCompatActivity {
 
 
         // morphological dilation
-        final Size strelSize = new Size(6, 6);
-        Mat element = Imgproc.getStructuringElement(MORPH_RECT, strelSize);
+        final Size strelSize = new Size(5, 5);
+        Mat element = Imgproc.getStructuringElement(MORPH_ELLIPSE, strelSize);
         Imgproc.morphologyEx(entropy, entropy, MORPH_GRADIENT, element);
-
         entropy.convertTo(entropy, CvType.CV_8UC1);
+
         // Threshold image to binary
         Imgproc.threshold(entropy, entropy, 0, 255, Imgproc.THRESH_BINARY + Imgproc.THRESH_OTSU);
 
+        Mat mask = Mat.zeros(rows + 2, cols + 2, CvType.CV_8UC1);
+        // Flood fill from pixel in corner
+        Log.i("Flooding", String.valueOf(bmp));
+        Mat flood = entropy.clone();
+        Imgproc.floodFill(flood, mask, new Point(0, 0), new Scalar(255));
+        Core.bitwise_not(flood, flood);
+        Core.bitwise_or(flood, entropy, entropy);
+        mask.release();
+        flood.release();
+
+        Mat cncmps = new Mat();
+        Mat stats = new Mat();
+        Mat centroids = new Mat();
+
+        int ncomps = Imgproc.connectedComponentsWithStats(entropy, cncmps, stats, centroids);
+        double pixMax = 0;
+        int compMax = 0;
+        for (int i = 1; i < ncomps; i++) {
+            if (stats.get(i, CC_STAT_AREA)[0] > pixMax) {
+                pixMax = stats.get(i, CC_STAT_AREA)[0];
+                compMax = i;
+            }
+        }
+        Log.d("CompMax", String.valueOf(stats.size()));
+        // Get largest connected component
+        int TX, TY, TW, TH;
+        TX = (int) stats.get(compMax, CC_STAT_LEFT)[0];
+        TY = (int) stats.get(compMax, CC_STAT_TOP)[0];
+        TW = (int) stats.get(compMax, CC_STAT_WIDTH)[0];
+        TH = (int) stats.get(compMax, CC_STAT_HEIGHT)[0];
+        Rect bBox = new Rect(TX, TY, TW, TH);
+        Log.d("CompMax", String.valueOf(bBox));
+
+        Mat croppedIm = orig.submat(bBox);
+        Log.d("CompMax", String.valueOf(croppedIm.size()));
+
+        Core.normalize(croppedIm, croppedIm, 0, 255, Core.NORM_MINMAX, CvType.CV_8UC1);
+        Mat croppedCol = new Mat();
+        Imgproc.cvtColor(croppedIm, croppedCol, Imgproc.COLOR_GRAY2BGR);
+        Imgproc.line(croppedCol, new Point(0, croppedCol.rows() / 2), new Point(croppedCol.cols(), croppedCol.rows() / 2), new Scalar(255, 0, 0));
+
+
+
         // Convert image and display in imageview
-        Bitmap bam = Bitmap.createBitmap(entropy.cols(), entropy.rows(), Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(entropy, bam);
+        Bitmap bam = Bitmap.createBitmap(croppedCol.cols(), croppedCol.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(croppedCol, bam);
 
         ImageView mImg;
         mImg = findViewById(R.id.imageView);
